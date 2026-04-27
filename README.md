@@ -15,6 +15,7 @@ The tool is intentionally not recursive. To process many files, invoke it from s
 - `--git-root`: stop looking for `.editorconfig` files in parent directories when a git repository root is reached.
 - `--dry-run`: report whether changes would be made without writing the file.
 - `--verify`: like `--dry-run`, but returns exit code `1` if a change would be made.
+- `--fix-all`: apply all fix options.
 - `--end-of-line`: apply `end_of_line`.
 - `--strip-bom`: remove a UTF-8 BOM when `charset = utf-8`.
 - `--trailing-whitespace`: apply `trim_trailing_whitespace = true`.

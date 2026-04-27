@@ -39,6 +39,7 @@ internal static class EditorConfigFixCli
 		var gitRootOption = CreateFlag("--git-root", "Stop looking for .editorconfig files when a git repository root is reached.");
 		var dryRunOption = CreateFlag("--dry-run", "Report whether changes would be made without writing the file.");
 		var verifyOption = CreateFlag("--verify", "Return exit code 1 if any change would be made.");
+		var fixAllOption = CreateFlag("--fix-all", "Apply all fix options.");
 		var endOfLineOption = CreateFlag("--end-of-line", "Apply end_of_line.");
 		var stripBomOption = CreateFlag("--strip-bom", "Remove a UTF-8 BOM when charset is utf-8.");
 		var trailingWhitespaceOption = CreateFlag("--trailing-whitespace", "Apply trim_trailing_whitespace.");
@@ -51,12 +52,14 @@ internal static class EditorConfigFixCli
 		rootCommand.Add(gitRootOption);
 		rootCommand.Add(dryRunOption);
 		rootCommand.Add(verifyOption);
+		rootCommand.Add(fixAllOption);
 		rootCommand.Add(endOfLineOption);
 		rootCommand.Add(stripBomOption);
 		rootCommand.Add(trailingWhitespaceOption);
 		rootCommand.Add(finalNewlineOption);
 		rootCommand.SetAction(parseResult =>
 		{
+			var fixAll = parseResult.GetValue(fixAllOption);
 			var options = new FixOptions(
 				parseResult.GetRequiredValue(filePathArgument),
 				parseResult.GetValue(anyFileOption),
@@ -64,10 +67,10 @@ internal static class EditorConfigFixCli
 				parseResult.GetValue(gitRootOption),
 				parseResult.GetValue(dryRunOption),
 				parseResult.GetValue(verifyOption),
-				parseResult.GetValue(endOfLineOption),
-				parseResult.GetValue(stripBomOption),
-				parseResult.GetValue(trailingWhitespaceOption),
-				parseResult.GetValue(finalNewlineOption));
+				fixAll || parseResult.GetValue(endOfLineOption),
+				fixAll || parseResult.GetValue(stripBomOption),
+				fixAll || parseResult.GetValue(trailingWhitespaceOption),
+				fixAll || parseResult.GetValue(finalNewlineOption));
 
 			if (!options.HasAnyFix)
 			{
@@ -97,6 +100,7 @@ internal static class EditorConfigFixCli
 
 	private static readonly string[] s_fixOptionNames =
 	[
+		"--fix-all",
 		"--end-of-line",
 		"--strip-bom",
 		"--trailing-whitespace",

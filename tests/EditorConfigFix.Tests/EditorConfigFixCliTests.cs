@@ -30,6 +30,7 @@ internal sealed class EditorConfigFixCliTests
 		Assert.That(result.Output, Is.Empty);
 		Assert.That(result.Error, Does.Contain("Required argument missing for command"));
 		Assert.That(result.Error, Does.Contain("Fix options:"));
+		Assert.That(result.Error, Does.Contain("  --fix-all"));
 		Assert.That(result.Error, Does.Contain("  --end-of-line"));
 		Assert.That(result.Error, Does.Contain("  --strip-bom"));
 		Assert.That(result.Error, Does.Contain("  --trailing-whitespace"));
@@ -37,6 +38,19 @@ internal sealed class EditorConfigFixCliTests
 		Assert.That(result.Error, Does.Contain("Usage:"));
 		Assert.That(result.Error.IndexOf("Required argument missing for command", StringComparison.Ordinal), Is.LessThan(result.Error.IndexOf("Fix options:", StringComparison.Ordinal)));
 		Assert.That(result.Error.IndexOf("Fix options:", StringComparison.Ordinal), Is.LessThan(result.Error.IndexOf("Usage:", StringComparison.Ordinal)));
+	}
+
+	[Test]
+	public void FixAllUsesAllFixOptions()
+	{
+		WriteTextFile(".editorconfig", "root = true\n\n[*.txt]\ncharset = utf-8\nend_of_line = lf\ntrim_trailing_whitespace = true\ninsert_final_newline = true\n");
+		var filePath = Path.Combine(m_temporaryDirectory!, "test.txt");
+		File.WriteAllBytes(filePath, [0xEF, 0xBB, 0xBF, (byte) 'o', (byte) 'n', (byte) 'e', (byte) ' ', (byte) '\r', (byte) '\n', (byte) 't', (byte) 'w', (byte) 'o']);
+
+		var result = Invoke(filePath, "--fix-all");
+
+		Assert.That(result.ExitCode, Is.EqualTo(ExitCodes.Success));
+		Assert.That(File.ReadAllBytes(filePath), Is.EqualTo("one\ntwo\n"u8.ToArray()));
 	}
 
 	[Test]
