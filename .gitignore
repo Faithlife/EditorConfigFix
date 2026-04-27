@@ -1,6 +1,16 @@
 .vs/
+.idea/
 artifacts/
 bin/
 obj/
-TestResults/
+release/
+
+*.cache
+*.log
+*.ncrunchproject
+*.ncrunchsolution
 *.user
+launchSettings.json
+nCrunchTemp*
+_ReSharper*
+.DS_Store

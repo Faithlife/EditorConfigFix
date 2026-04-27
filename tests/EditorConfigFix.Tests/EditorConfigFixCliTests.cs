@@ -10,15 +10,15 @@ internal sealed class EditorConfigFixCliTests
 	[SetUp]
 	public void SetUp()
 	{
-		_temporaryDirectory = Path.Combine(Path.GetTempPath(), "EditorConfigFix.Tests", Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
-		Directory.CreateDirectory(_temporaryDirectory);
+		m_temporaryDirectory = Path.Combine(Path.GetTempPath(), "EditorConfigFix.Tests", Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
+		Directory.CreateDirectory(m_temporaryDirectory);
 	}
 
 	[TearDown]
 	public void TearDown()
 	{
-		if (_temporaryDirectory is not null && Directory.Exists(_temporaryDirectory))
-			Directory.Delete(_temporaryDirectory, true);
+		if (m_temporaryDirectory is not null && Directory.Exists(m_temporaryDirectory))
+			Directory.Delete(m_temporaryDirectory, true);
 	}
 
 	[Test]
@@ -100,7 +100,7 @@ internal sealed class EditorConfigFixCliTests
 	public void FinalNewlineDoesNotAddNewlineToEmptyFile()
 	{
 		WriteTextFile(".editorconfig", "root = true\n\n[*.txt]\ninsert_final_newline = true\n");
-		var filePath = WriteTextFile("test.txt", string.Empty);
+		var filePath = WriteTextFile("test.txt", "");
 		var lastWriteTime = File.GetLastWriteTimeUtc(filePath);
 
 		var result = Invoke(filePath, "--final-newline");
@@ -128,20 +128,20 @@ internal sealed class EditorConfigFixCliTests
 	public void StripBomRemovesUtf8BomWhenCharsetIsUtf8()
 	{
 		WriteTextFile(".editorconfig", "root = true\n\n[*.txt]\ncharset = utf-8\n");
-		var filePath = Path.Combine(_temporaryDirectory!, "test.txt");
-		File.WriteAllBytes(filePath, [0xEF, 0xBB, 0xBF, (byte)'o', (byte)'n', (byte)'e']);
+		var filePath = Path.Combine(m_temporaryDirectory!, "test.txt");
+		File.WriteAllBytes(filePath, [0xEF, 0xBB, 0xBF, (byte) 'o', (byte) 'n', (byte) 'e']);
 
 		var result = Invoke(filePath, "--strip-bom");
 
 		Assert.That(result.ExitCode, Is.EqualTo(ExitCodes.Success));
-		Assert.That(File.ReadAllBytes(filePath), Is.EqualTo(new byte[] { (byte)'o', (byte)'n', (byte)'e' }));
+		Assert.That(File.ReadAllBytes(filePath), Is.EqualTo("one"u8.ToArray()));
 	}
 
 	[Test]
 	public void InvalidUtf8IsSkippedWithoutForce()
 	{
 		WriteTextFile(".editorconfig", "root = true\n\n[*.bin]\ntrim_trailing_whitespace = true\n");
-		var filePath = Path.Combine(_temporaryDirectory!, "test.bin");
+		var filePath = Path.Combine(m_temporaryDirectory!, "test.bin");
 		File.WriteAllBytes(filePath, [0xFF]);
 
 		var result = Invoke(filePath, "--trailing-whitespace");
@@ -155,7 +155,7 @@ internal sealed class EditorConfigFixCliTests
 	public void InvalidUtf8FailsWithForce()
 	{
 		WriteTextFile(".editorconfig", "root = true\n\n[*.bin]\ntrim_trailing_whitespace = true\n");
-		var filePath = Path.Combine(_temporaryDirectory!, "test.bin");
+		var filePath = Path.Combine(m_temporaryDirectory!, "test.bin");
 		File.WriteAllBytes(filePath, [0xFF]);
 
 		var result = Invoke(filePath, "--force", "--trailing-whitespace");
@@ -169,7 +169,7 @@ internal sealed class EditorConfigFixCliTests
 	public void ValidUtf8WithNullByteCanBeChanged()
 	{
 		WriteTextFile(".editorconfig", "root = true\n\n[*.txt]\ntrim_trailing_whitespace = true\n");
-		var filePath = Path.Combine(_temporaryDirectory!, "test.txt");
+		var filePath = Path.Combine(m_temporaryDirectory!, "test.txt");
 		File.WriteAllBytes(filePath, Encoding.UTF8.GetBytes("one\0 \n"));
 
 		var result = Invoke(filePath, "--trailing-whitespace");
@@ -198,7 +198,7 @@ internal sealed class EditorConfigFixCliTests
 	public void GitRootStopsParentEditorConfigDiscovery()
 	{
 		WriteTextFile(".editorconfig", "root = true\n\n[*.txt]\ntrim_trailing_whitespace = true\n");
-		var repoDirectory = Path.Combine(_temporaryDirectory!, "repo");
+		var repoDirectory = Path.Combine(m_temporaryDirectory!, "repo");
 		Directory.CreateDirectory(Path.Combine(repoDirectory, ".git"));
 		var filePath = Path.Combine(repoDirectory, "test.txt");
 		File.WriteAllText(filePath, "one \n");
@@ -235,11 +235,11 @@ internal sealed class EditorConfigFixCliTests
 
 	private string WriteTextFile(string relativePath, string text)
 	{
-		var path = Path.Combine(_temporaryDirectory!, relativePath);
+		var path = Path.Combine(m_temporaryDirectory!, relativePath);
 		Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 		File.WriteAllText(path, text, new UTF8Encoding(false));
 		return path;
 	}
 
-	private string? _temporaryDirectory;
+	private string? m_temporaryDirectory;
 }

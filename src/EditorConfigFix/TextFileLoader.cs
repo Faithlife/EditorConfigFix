@@ -12,7 +12,7 @@ internal sealed class TextFileLoader
 
 		var bytes = File.ReadAllBytes(path);
 		var hasUtf8Bom = HasUtf8Bom(bytes);
-		var contentBytes = hasUtf8Bom ? bytes.AsSpan(Utf8Preamble.Length) : bytes.AsSpan();
+		var contentBytes = hasUtf8Bom ? bytes.AsSpan(s_utf8Preamble.Length) : bytes.AsSpan();
 
 		try
 		{
@@ -26,8 +26,8 @@ internal sealed class TextFileLoader
 	}
 
 	private static bool HasUtf8Bom(byte[] bytes) =>
-		bytes.Length >= Utf8Preamble.Length && bytes.AsSpan(0, Utf8Preamble.Length).SequenceEqual(Utf8Preamble);
+		bytes.Length >= s_utf8Preamble.Length && bytes.AsSpan(0, s_utf8Preamble.Length).SequenceEqual(s_utf8Preamble);
 
-	private static readonly byte[] Utf8Preamble = [0xEF, 0xBB, 0xBF];
+	private static readonly byte[] s_utf8Preamble = [0xEF, 0xBB, 0xBF];
 	private static readonly UTF8Encoding s_strictUtf8 = new(false, true);
 }
