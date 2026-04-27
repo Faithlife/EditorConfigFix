@@ -22,6 +22,24 @@ internal sealed class EditorConfigFixCliTests
 	}
 
 	[Test]
+	public void MissingFilePathShowsFixOptionsAndHelp()
+	{
+		var result = Invoke("--trailing-whitespace");
+
+		Assert.That(result.ExitCode, Is.EqualTo(ExitCodes.CommandLineError));
+		Assert.That(result.Output, Is.Empty);
+		Assert.That(result.Error, Does.Contain("Required argument missing for command"));
+		Assert.That(result.Error, Does.Contain("Fix options:"));
+		Assert.That(result.Error, Does.Contain("  --end-of-line"));
+		Assert.That(result.Error, Does.Contain("  --strip-bom"));
+		Assert.That(result.Error, Does.Contain("  --trailing-whitespace"));
+		Assert.That(result.Error, Does.Contain("  --final-newline"));
+		Assert.That(result.Error, Does.Contain("Usage:"));
+		Assert.That(result.Error.IndexOf("Required argument missing for command", StringComparison.Ordinal), Is.LessThan(result.Error.IndexOf("Fix options:", StringComparison.Ordinal)));
+		Assert.That(result.Error.IndexOf("Fix options:", StringComparison.Ordinal), Is.LessThan(result.Error.IndexOf("Usage:", StringComparison.Ordinal)));
+	}
+
+	[Test]
 	public void NoFixOptionFails()
 	{
 		var filePath = WriteTextFile("test.txt", "test");

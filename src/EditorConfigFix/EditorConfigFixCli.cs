@@ -11,7 +11,15 @@ internal static class EditorConfigFixCli
 		if (parseResult.Errors.Count != 0)
 		{
 			foreach (var parseError in parseResult.Errors)
+			{
 				errorWriter.WriteLine($"error: {parseError.Message}");
+			}
+
+			if (parseResult.Errors.Any(static parseError => parseError.Message.StartsWith("Required argument missing for command", StringComparison.Ordinal)))
+			{
+				WriteFixOptions(errorWriter);
+				rootCommand.Parse("--help").Invoke(new InvocationConfiguration { Output = errorWriter, Error = errorWriter });
+			}
 
 			return ExitCodes.CommandLineError;
 		}
@@ -73,5 +81,25 @@ internal static class EditorConfigFixCli
 		return rootCommand;
 	}
 
+	private static void WriteFixOptions(TextWriter writer)
+	{
+		writer.WriteLine();
+		writer.WriteLine("Fix options:");
+		foreach (var fixOption in s_fixOptionNames)
+		{
+			writer.WriteLine($"  {fixOption}");
+		}
+
+		writer.WriteLine();
+	}
+
 	private static Option<bool> CreateFlag(string name, string description) => new(name) { Description = description };
+
+	private static readonly string[] s_fixOptionNames =
+	[
+		"--end-of-line",
+		"--strip-bom",
+		"--trailing-whitespace",
+		"--final-newline",
+	];
 }
