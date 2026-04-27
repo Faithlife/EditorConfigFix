@@ -18,7 +18,7 @@ The tool is intentionally file-scoped. It does not walk directories or expand gl
 - Leave the file untouched when the selected settings already comply.
 - Leave the file untouched when no selected setting is applicable.
 - Support dry-run and verify modes without modifying the file.
-- Avoid changing binary files unless `--force` is specified.
+- Treat files outside the supported UTF-8 text scope as binary unless `--force` is specified.
 - Keep behavior deterministic, idempotent, and easy to test with temporary files and repositories.
 
 ## Non-Goals
@@ -26,6 +26,9 @@ The tool is intentionally file-scoped. It does not walk directories or expand gl
 - Recursively processing directories.
 - Formatting language syntax or performing language-aware indentation.
 - Applying every EditorConfig property.
+- Applying `indent_style` or `indent_size`.
+- Supporting non-UTF-8 encodings.
+- Removing final newlines for `insert_final_newline = false`.
 - Rewriting `.editorconfig` files.
 - Adding interactive prompts.
 - Restoring removed trailing whitespace or final newlines when the EditorConfig property is absent.
@@ -62,11 +65,10 @@ editorconfig-fix file-path [options]
 Options:
 
 - `--any-file`: allow settings that come only from a matching `[*]` section.
-- `--force`: allow files detected as binary to be processed.
+- `--force`: attempt files detected as binary, while still requiring supported UTF-8 decoding before any write.
 - `--git-root`: stop searching parent directories for `.editorconfig` when a git repository root is reached.
 - `--dry-run`: report whether changes would be made, but do not write the file.
 - `--verify`: like `--dry-run`, but return exit code `1` if any selected fix would change the file.
-- `--indent`: apply `indent_style` and `indent_size` behavior.
 - `--end-of-line`: apply `end_of_line` behavior.
 - `--strip-bom`: remove a UTF-8 BOM when `charset` resolves to `utf-8`.
 - `--trailing-whitespace`: apply `trim_trailing_whitespace` behavior.
@@ -76,7 +78,7 @@ Validation:
 
 - `file-path` is required and must name an existing file.
 - Directories are rejected.
-- At least one fix option must be specified: `--indent`, `--end-of-line`, `--strip-bom`, `--trailing-whitespace`, or `--final-newline`.
+- At least one fix option must be specified: `--end-of-line`, `--strip-bom`, `--trailing-whitespace`, or `--final-newline`.
 - `--verify` implies dry-run behavior. If both `--dry-run` and `--verify` are supplied, use verify exit semantics.
 
 ## Exit Codes
@@ -93,7 +95,7 @@ The package exposes:
 
 - `EditorConfigParser.Parse(fileName, editorConfigFiles)` for resolving a file against a supplied list of parsed `.editorconfig` files.
 - `EditorConfigFile.Parse(path)` for parsing individual files.
-- `FileConfiguration` properties for `Charset`, `EndOfLine`, `IndentStyle`, `IndentSize`, `TabWidth`, `TrimTrailingWhitespace`, and `InsertFinalNewline`.
+- `FileConfiguration` properties for `Charset`, `EndOfLine`, `TrimTrailingWhitespace`, and `InsertFinalNewline`.
 - `GlobMatcher` and `GlobMatcherOptions` for matching section globs when the tool needs section-level metadata.
 
 Do not rely directly on `EditorConfigParser.GetConfigurationFilesTillRoot` because `--git-root` adds a stopping rule that the package does not implement. Instead:
@@ -121,32 +123,35 @@ This means a file matched by both `[*]` and `[*.cs]` is eligible without `--any-
 
 ## Binary File Detection
 
-Binary detection should happen after EditorConfig resolution and before text decoding or transformation.
+Binary detection should happen after EditorConfig resolution and before transformation.
+
+In the first version, the tool supports only UTF-8 text files. Files with unsupported configured charsets or bytes that are not valid UTF-8 are treated as effectively binary.
 
 Proposed heuristic:
 
-- Read the first 8 KiB of the file.
-- Treat the file as text if it starts with a known text BOM: UTF-8, UTF-16 LE, or UTF-16 BE.
-- Otherwise, classify the file as binary if the sampled bytes contain `0x00`.
-- Otherwise, classify the file as text.
+- If `charset` is present and is not `utf-8` or `utf-8-bom`, classify the file as unsupported text and treat it like binary for skip purposes.
+- Otherwise, read the full file and decode it with a strict UTF-8 decoder, accepting an optional UTF-8 BOM.
+- If UTF-8 decoding succeeds, classify the file as supported text.
+- If UTF-8 decoding fails, classify the file as binary.
 
-Without `--force`, binary files are skipped and left untouched. With `--force`, the binary check is bypassed, but text transformations still require the file to be decoded successfully according to the configured or detected encoding. `--force` should not silently corrupt undecodable data.
+This is less conservative than a NUL-byte sample because valid UTF-8 content remains eligible even when it contains `0x00`. It is also intentionally narrower about encodings: UTF-16, Latin-1, and other non-UTF-8 inputs are out of scope until explicit encoding support is added.
+
+Without `--force`, binary or unsupported-encoding files are skipped and left untouched. With `--force`, the binary skip is bypassed, but the file must still decode as UTF-8 before any transformation can run. `--force` should never silently corrupt undecodable data or process an explicitly unsupported charset.
 
 ## Encoding Model
 
-Represent the file as `OriginalFileBytes` plus decoded text and encoding metadata.
+Represent the file as `OriginalFileBytes` plus decoded UTF-8 text and BOM metadata.
 
 Encoding selection:
 
-- If `charset` is `utf-8`, decode as UTF-8 and write without adding a BOM unless the original BOM is intentionally preserved by a non-`--strip-bom` run.
-- If `charset` is `utf-8-bom`, decode as UTF-8 and preserve an existing UTF-8 BOM. Do not add a BOM unless charset writing is explicitly added in a future feature.
-- If `charset` is `utf-16le` or `utf-16be`, decode with the corresponding Unicode encoding.
-- If `charset` is `latin1`, decode as ISO-8859-1.
-- If `charset` is absent, detect UTF BOMs first, otherwise decode as strict UTF-8.
+- If `charset` is `utf-8`, decode as strict UTF-8 and write without adding a BOM unless the original BOM is intentionally preserved by a non-`--strip-bom` run.
+- If `charset` is `utf-8-bom`, decode as strict UTF-8 and preserve an existing UTF-8 BOM. Do not add a BOM unless charset-writing support is explicitly added in a future feature.
+- If `charset` is absent, accept UTF-8 with or without a BOM and preserve the original BOM shape unless `--strip-bom` removes it.
+- If `charset` is any other value, skip the file without `--force` and fail with a clear unsupported-charset error with `--force`.
 
-Use strict decoders where available. If decoding fails, return a clear error instead of writing a guessed transformation.
+If UTF-8 decoding fails, skip the file without `--force` and fail with a clear decode error with `--force`.
 
-Do not treat this tool as a general charset fixer. Except for `--strip-bom`, preserve the original encoding shape as much as possible.
+Do not treat this tool as a general charset fixer. Except for `--strip-bom`, preserve the original UTF-8 BOM shape as much as possible.
 
 ## Transform Semantics
 
@@ -175,21 +180,10 @@ Each selected fix should be a pure transformation from the original decoded text
 ### `--final-newline`
 
 - Only acts when `insert_final_newline` is present.
-- When true, ensure the file ends with exactly one final line break.
-- When false, remove all terminal line break sequences.
+- When true, ensure every non-empty file ends with exactly one final line break.
+- When true and the file is empty, do nothing.
+- When false, do nothing in the first version. "Not inserting" is not the same operation as removing existing terminal line breaks.
 - Use the configured `end_of_line` value when available; otherwise use the first existing line ending in the file, falling back to `Environment.NewLine` only when the file has no line endings.
-
-### `--indent`
-
-- Acts when `indent_style` is present.
-- Normalize only leading whitespace before the first non-whitespace character on each line.
-- Do not attempt language-aware reindentation or syntax parsing.
-- Use visual-column conversion so existing indentation depth is preserved as closely as possible.
-- For `indent_style = space`, emit spaces for leading indentation. Use numeric `indent_size` when present; if `indent_size = tab`, use `tab_width`; if neither is available, default to `4`.
-- For `indent_style = tab`, emit tabs for whole indentation units and spaces for any remainder. Use `tab_width` when present; otherwise use numeric `indent_size`; otherwise default to `4`.
-- Blank lines should be handled by the trailing-whitespace option, not by indentation normalization.
-
-Because indentation cannot be made fully semantic without language parsers, document the behavior as indentation-character normalization rather than code formatting.
 
 ## Write Behavior
 
@@ -210,6 +204,7 @@ Suggested messages:
 - `changed <path>` after writing.
 - `would change <path>` for `--dry-run` or `--verify` when candidate bytes differ.
 - `skipped <path>: binary file` when skipped because `--force` was not supplied.
+- `skipped <path>: unsupported charset` when skipped because the resolved charset is not `utf-8` or `utf-8-bom`.
 - `skipped <path>: only [*] matched` when skipped because `--any-file` was not supplied.
 - `skipped <path>: no selected settings apply` when the requested fix options have no corresponding resolved EditorConfig settings.
 
@@ -221,10 +216,10 @@ Avoid verbose per-line reporting in the first version.
 - `FixOptions`: immutable option model created by the CLI handler.
 - `EditorConfigResolver`: discovers `.editorconfig` files, applies `--git-root`, parses settings, and computes matching sections.
 - `ResolvedEditorConfig`: contains `FileConfiguration`, matching section metadata, and skip reasons.
-- `BinaryFileDetector`: implements the sampled NUL-byte heuristic.
-- `TextFileLoader`: handles BOM detection, charset-aware decoding, and encoding metadata.
+- `SupportedTextDetector`: implements UTF-8-only text detection and unsupported-charset handling.
+- `TextFileLoader`: handles UTF-8 BOM detection, strict decoding, and BOM metadata.
 - `EditorConfigFixer`: orchestrates eligibility checks and transformations.
-- `TextTransforms`: pure helpers for line endings, trailing whitespace, final newline, indentation, and BOM handling.
+- `TextTransforms`: pure helpers for line endings, trailing whitespace, final newline, and BOM handling.
 - `FileWriter`: handles dry-run, verify, byte comparison, and atomic replacement.
 
 Keep the transformation helpers independent of command-line parsing and file-system writes so tests can cover most behavior without spawning the tool.
@@ -251,17 +246,21 @@ EditorConfig resolution:
 
 Binary handling:
 
-- File with sampled NUL bytes is skipped without `--force`.
-- Same file is attempted with `--force`.
-- UTF-8 and UTF-16 BOM text files are not misclassified as binary.
+- Invalid UTF-8 bytes are skipped without `--force`.
+- Invalid UTF-8 bytes fail with a clear decode error with `--force`.
+- Valid UTF-8 files with `0x00` bytes are not misclassified as binary.
+- UTF-8 BOM files are accepted.
+- UTF-16 BOM files are treated as unsupported/binary.
+- Explicit non-UTF-8 `charset` values are skipped without `--force` and fail clearly with `--force`.
 
 Transform behavior:
 
 - `--strip-bom` removes a UTF-8 BOM only when charset is `utf-8`.
 - `--end-of-line` converts LF, CRLF, and CR to the configured style.
 - `--trailing-whitespace` removes spaces and tabs before line breaks and EOF only when configured true.
-- `--final-newline` handles both true and false.
-- `--indent` converts leading tabs to spaces and leading spaces to tabs according to resolved settings.
+- `--final-newline` with `insert_final_newline = true` adds one final newline to non-empty files.
+- `--final-newline` with `insert_final_newline = true` does not add a newline to empty files.
+- `--final-newline` with `insert_final_newline = false` makes no change.
 - Multiple selected fixes compose deterministically.
 
 No-touch guarantees:
@@ -284,21 +283,21 @@ Exit behavior:
 - Document `--any-file`, especially the default skip for files matched only by `[*]`.
 - Document binary detection and `--force`.
 - Document verify-mode exit code `1`.
-- Document the limited, non-language-aware indentation behavior.
+- Document that only UTF-8 and UTF-8 BOM files are supported in the first version.
+- Document that indentation fixing and newline removal for `insert_final_newline = false` are out of scope for the first version.
 
 ## Suggested Delivery Order
 
 1. Scaffold the solution, projects, package references, build script, README, and release notes.
 2. Implement command-line parsing and validation with stubbed runner behavior.
 3. Implement EditorConfig discovery, `--git-root`, setting resolution, and `--any-file` eligibility.
-4. Implement binary detection, text loading, and no-touch byte comparison.
+4. Implement UTF-8-only text detection, text loading, unsupported-charset handling, and no-touch byte comparison.
 5. Implement `--strip-bom`, `--end-of-line`, `--trailing-whitespace`, and `--final-newline`.
-6. Implement `--indent` after the line-based transforms are stable.
-7. Add integration tests for dry-run, verify, atomic writes, and timestamp preservation.
-8. Fill in README examples and run the full build.
+6. Add integration tests for dry-run, verify, atomic writes, and timestamp preservation.
+7. Fill in README examples and run the full build.
 
 ## Questions And Concerns
 
-- `indent_size` cannot be made fully semantic without language-specific parsers. The first version should document and test visual-column normalization rather than promising formatter-like reindentation.
-- UTF-16 files without a BOM may be classified as binary by the NUL-byte heuristic unless `--force` is used or `charset` is explicitly configured. This should be documented if the heuristic remains simple.
-- `insert_final_newline = false` is uncommon but supported by the plan; confirm that removing all terminal line breaks is the desired interpretation before implementation.
+- Indentation is deliberately out of scope because a safe implementation would need language-aware parsing or formatter integration.
+- Support for UTF-16, Latin-1, and other encodings can be added later as explicit features rather than being guessed in the first version.
+- `insert_final_newline = false` is deliberately out of scope because not inserting a final newline is different from removing existing terminal line breaks.
