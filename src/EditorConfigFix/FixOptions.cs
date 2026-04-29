@@ -3,7 +3,6 @@ namespace EditorConfigFix;
 internal sealed record FixOptions(
 	string FilePath,
 	bool AnyFile,
-	bool Force,
 	bool GitRoot,
 	bool DryRun,
 	bool Verify,

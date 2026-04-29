@@ -54,7 +54,7 @@ internal sealed class EditorConfigFixer
 
 		var loadResult = m_textFileLoader.Load(fullPath, resolvedEditorConfig.Configuration);
 		if (loadResult.File is null)
-			return HandleLoadFailure(options, fullPath, loadResult);
+			return HandleLoadFailure(fullPath, loadResult);
 
 		var candidateBytes = GetCandidateBytes(loadResult.File, resolvedEditorConfig.Configuration, options);
 		if (loadResult.File.OriginalBytes.SequenceEqual(candidateBytes))
@@ -74,17 +74,11 @@ internal sealed class EditorConfigFixer
 		return ExitCodes.Success;
 	}
 
-	private int HandleLoadFailure(FixOptions options, string fullPath, TextLoadResult loadResult)
+	private int HandleLoadFailure(string fullPath, TextLoadResult loadResult)
 	{
-		if (!options.Force)
-		{
-			var reason = loadResult.FailureKind == TextLoadFailureKind.UnsupportedCharset ? "unsupported charset" : "binary file";
-			m_outputWriter.WriteLine($"skipped {fullPath}: {reason}");
-			return ExitCodes.Success;
-		}
-
-		m_errorWriter.WriteLine($"error: {loadResult.Message}");
-		return ExitCodes.ProcessingError;
+		var reason = loadResult.FailureKind == TextLoadFailureKind.UnsupportedCharset ? "unsupported charset" : "binary file";
+		m_outputWriter.WriteLine($"skipped {fullPath}: {reason}");
+		return ExitCodes.Success;
 	}
 
 	private static bool HasApplicableSelectedSetting(FixOptions options, FileConfiguration configuration) =>

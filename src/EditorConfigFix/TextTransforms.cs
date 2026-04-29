@@ -36,20 +36,25 @@ internal static class TextTransforms
 	public static string TrimTrailingWhitespace(string text)
 	{
 		var builder = new StringBuilder(text.Length);
-		var pendingWhitespace = 0;
+		var pendingWhitespaceStart = -1;
+		var pendingWhitespaceLength = 0;
 
 		for (var index = 0; index < text.Length; index++)
 		{
 			var current = text[index];
 			if (current is ' ' or '\t')
 			{
-				pendingWhitespace++;
+				if (pendingWhitespaceStart == -1)
+					pendingWhitespaceStart = index;
+
+				pendingWhitespaceLength++;
 				continue;
 			}
 
 			if (current == '\r')
 			{
-				pendingWhitespace = 0;
+				pendingWhitespaceStart = -1;
+				pendingWhitespaceLength = 0;
 				builder.Append('\r');
 				if (index + 1 < text.Length && text[index + 1] == '\n')
 				{
@@ -62,13 +67,15 @@ internal static class TextTransforms
 
 			if (current == '\n')
 			{
-				pendingWhitespace = 0;
+				pendingWhitespaceStart = -1;
+				pendingWhitespaceLength = 0;
 				builder.Append('\n');
 				continue;
 			}
 
-			AppendPendingWhitespace(builder, pendingWhitespace);
-			pendingWhitespace = 0;
+			AppendPendingWhitespace(builder, text, pendingWhitespaceStart, pendingWhitespaceLength);
+			pendingWhitespaceStart = -1;
+			pendingWhitespaceLength = 0;
 			builder.Append(current);
 		}
 
@@ -92,10 +99,10 @@ internal static class TextTransforms
 		_ => throw new InvalidOperationException($"Unsupported end_of_line value: {endOfLine}"),
 	};
 
-	private static void AppendPendingWhitespace(StringBuilder builder, int count)
+	private static void AppendPendingWhitespace(StringBuilder builder, string text, int startIndex, int length)
 	{
-		for (var index = 0; index < count; index++)
-			builder.Append(' ');
+		if (length != 0)
+			builder.Append(text, startIndex, length);
 	}
 
 	private static string? FindFirstLineEnding(string text)
