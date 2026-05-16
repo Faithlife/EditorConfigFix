@@ -1,6 +1,9 @@
 conventions:
+  - path: Faithlife/CodingGuidelines/conventions/faithlife-auto-apply-conventions
+  - path: Faithlife/CodingGuidelines/conventions/dotnet-common
+  - path: Faithlife/CodingGuidelines/conventions/faithlife-dotnet-library-build
+  - path: Faithlife/CodingGuidelines/conventions/faithlife-dotnet-library-workflow
   - path: Faithlife/CodingGuidelines/conventions/faithlife-license-mit
-  - path: Faithlife/CodingGuidelines/conventions/faithlife-csharp-library
 
 pull-request:
   reviewers:
