@@ -9,6 +9,7 @@
     <PackAsTool>true</PackAsTool>
     <AssemblyName>editorconfig-fix</AssemblyName>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RewritePackageReadmeLinks>true</RewritePackageReadmeLinks>
   </PropertyGroup>
 
   <ItemGroup>
