@@ -1,5 +1,7 @@
 # editorconfig-fix
 
+[![NuGet](https://img.shields.io/nuget/v/editorconfig-fix.svg)](https://www.nuget.org/packages/editorconfig-fix)
+
 `editorconfig-fix` applies selected EditorConfig settings to one specified file.
 
 ```pwsh
