@@ -1,0 +1,21 @@
+name: Test NuGet Trusted Publishing
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-nuget-login:
+    name: Test LogosPackages NuGet login
+    if: github.repository == 'Faithlife/EditorConfigFix'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+    - name: Log in to NuGet as LogosPackages
+      uses: NuGet/login@v1
+      with:
+        user: LogosPackages
