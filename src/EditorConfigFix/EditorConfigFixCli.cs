@@ -15,7 +15,7 @@ internal static class EditorConfigFixCli
 				errorWriter.WriteLine($"error: {parseError.Message}");
 			}
 
-			if (parseResult.Errors.Any(static parseError => parseError.Message.StartsWith("Required argument missing for command", StringComparison.Ordinal)))
+			if (parseResult.Errors.Any(static parseError => parseError.Message.StartsWith("Required argument", StringComparison.Ordinal)))
 			{
 				WriteFixOptions(errorWriter);
 				rootCommand.Parse("--help").Invoke(new InvocationConfiguration { Output = errorWriter, Error = errorWriter });
