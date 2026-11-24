@@ -28,7 +28,7 @@ internal sealed class EditorConfigFixCliTests
 
 		Assert.That(result.ExitCode, Is.EqualTo(ExitCodes.CommandLineError));
 		Assert.That(result.Output, Is.Empty);
-		Assert.That(result.Error, Does.Contain("Required argument missing for command"));
+		Assert.That(result.Error, Does.Contain("Required argument 'file-path' missing for command"));
 		Assert.That(result.Error, Does.Contain("Fix options:"));
 		Assert.That(result.Error, Does.Contain("  --all"));
 		Assert.That(result.Error, Does.Contain("  --eol"));
@@ -36,7 +36,7 @@ internal sealed class EditorConfigFixCliTests
 		Assert.That(result.Error, Does.Contain("  --trim"));
 		Assert.That(result.Error, Does.Contain("  --final"));
 		Assert.That(result.Error, Does.Contain("Usage:"));
-		Assert.That(result.Error.IndexOf("Required argument missing for command", StringComparison.Ordinal), Is.LessThan(result.Error.IndexOf("Fix options:", StringComparison.Ordinal)));
+		Assert.That(result.Error.IndexOf("Required argument", StringComparison.Ordinal), Is.LessThan(result.Error.IndexOf("Fix options:", StringComparison.Ordinal)));
 		Assert.That(result.Error.IndexOf("Fix options:", StringComparison.Ordinal), Is.LessThan(result.Error.IndexOf("Usage:", StringComparison.Ordinal)));
 	}
 
